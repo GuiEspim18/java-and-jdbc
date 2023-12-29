@@ -22,7 +22,8 @@ public class ContaService {
     private Set<Conta> contas = new HashSet<>();
 
     public Set<Conta> listarContasAbertas() {
-        return contas;
+        Connection connection = this.connection.connect();
+        return new AccountDao(connection).getAll();
     }
 
     public BigDecimal consultarSaldo(Integer numeroDaConta) {
@@ -35,26 +36,29 @@ public class ContaService {
             new AccountDao(connection).save(data);
     }
 
-    public void realizarSaque(Integer numeroDaConta, BigDecimal valor) {
-        var conta = buscarContaPorNumero(numeroDaConta);
-        if (valor.compareTo(BigDecimal.ZERO) <= 0) {
+    public void realizarSaque(Integer id, BigDecimal value) {
+        Conta account = buscarContaPorNumero(id);
+        if (value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RegraDeNegocioException("Valor do saque deve ser superior a zero!");
         }
 
-        if (valor.compareTo(conta.getSaldo()) > 0) {
+        if (value.compareTo(account.getSaldo()) > 0) {
             throw new RegraDeNegocioException("Saldo insuficiente!");
         }
-
-        conta.sacar(valor);
+        Connection connection = this.connection.connect();
+        BigDecimal newValue = account.getSaldo().subtract(value);
+        new AccountDao(connection).update(id, newValue);
     }
 
-    public void realizarDeposito(Integer numeroDaConta, BigDecimal valor) {
-        var conta = buscarContaPorNumero(numeroDaConta);
-        if (valor.compareTo(BigDecimal.ZERO) <= 0) {
+    public void realizarDeposito(Integer id, BigDecimal value) {
+        var account = buscarContaPorNumero(id);
+        if (value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RegraDeNegocioException("Valor do deposito deve ser superior a zero!");
         }
 
-        conta.depositar(valor);
+        Connection connection = this.connection.connect();
+        BigDecimal newValue = account.getSaldo().add(value);
+        new AccountDao(connection).update(account.getNumero(), newValue);
     }
 
     public void encerrar(Integer numeroDaConta) {
@@ -66,11 +70,13 @@ public class ContaService {
         contas.remove(conta);
     }
 
-    private Conta buscarContaPorNumero(Integer numero) {
-        return contas
-                .stream()
-                .filter(c -> c.getNumero() == numero)
-                .findFirst()
-                .orElseThrow(() -> new RegraDeNegocioException("Não existe conta cadastrada com esse número!"));
+    private Conta buscarContaPorNumero(Integer id) {
+       Connection connection = this.connection.connect();
+       return new AccountDao(connection).getOne(id);
+    }
+
+    public void transference (Integer from, Integer to, BigDecimal value) {
+        this.realizarSaque(from, value);
+        this.realizarDeposito(to, value);
     }
 }
