@@ -21,16 +21,17 @@ public class AccountDao {
 
     public void save(DadosAberturaConta data) {
         var client = new Cliente(data.dadosCliente());
-        var account = new Conta(data.numero(), BigDecimal.ZERO, client);
+        var account = new Conta(data.numero(), BigDecimal.ZERO, client, true);
         try {
-            String sql = "INSERT INTO account (id, balance, client, document, email)" +
-                    "VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO account (id, balance, client, document, email, active)" +
+                    "VALUES (?, ?, ?, ?, ?, ?)";
             PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
             preparedStatement.setInt(1, account.getNumero());
             preparedStatement.setBigDecimal(2, BigDecimal.ZERO);
             preparedStatement.setString(3, data.dadosCliente().nome());
             preparedStatement.setString(4, data.dadosCliente().cpf());
             preparedStatement.setString(5, data.dadosCliente().email());
+            preparedStatement.setBoolean(6, true);
             preparedStatement.execute();
             preparedStatement.close();
             this.connection.close();
@@ -43,7 +44,7 @@ public class AccountDao {
         PreparedStatement preparedStatement;
         ResultSet resultSet;
         Set<Conta> accounts = new HashSet<>();
-        String sql = "SELECT * FROM account";
+        String sql = "SELECT * FROM account WHERE active = true";
         try {
             preparedStatement = this.connection.prepareStatement(sql);
             resultSet = preparedStatement.executeQuery();
@@ -53,9 +54,10 @@ public class AccountDao {
                 String name = resultSet.getString(3);
                 String document = resultSet.getString(4);
                 String email = resultSet.getString(5);
+                boolean active = resultSet.getBoolean(6);
                 DadosCadastroCliente data = new DadosCadastroCliente(name, document, email);
                 Cliente client = new Cliente(data);
-                accounts.add(new Conta(num, balance, client));
+                accounts.add(new Conta(num, balance, client, active));
             }
             resultSet.close();
             preparedStatement.close();
@@ -70,7 +72,7 @@ public class AccountDao {
         PreparedStatement preparedStatement;
         ResultSet resultSet;
         Conta account = null;
-        String sql = "SELECT * FROM account WHERE id = ?";
+        String sql = "SELECT * FROM account WHERE id = ? and active = true";
         try {
             preparedStatement = this.connection.prepareStatement(sql);
             preparedStatement.setInt(1, id);
@@ -81,9 +83,10 @@ public class AccountDao {
                 String name = resultSet.getString(3);
                 String email = resultSet.getString(4);
                 String document = resultSet.getString(5);
+                boolean active = resultSet.getBoolean(6);
                 DadosCadastroCliente data = new DadosCadastroCliente(name, document, email);
                 Cliente client = new Cliente(data);
-                account = new Conta(accountId, balance, client);
+                account = new Conta(accountId, balance, client, active);
             }
             resultSet.close();
             preparedStatement.close();
@@ -101,6 +104,34 @@ public class AccountDao {
             preparedStatement = this.connection.prepareStatement(sql);
             preparedStatement.setBigDecimal(1, value);
             preparedStatement.setInt(2, id);
+            preparedStatement.execute();
+            preparedStatement.close();
+            this.connection.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void delete(Integer id) {
+        PreparedStatement preparedStatement;
+        String sql = "DELETE FROM account WHERE id = ?";
+        try {
+            preparedStatement = this.connection.prepareStatement(sql);
+            preparedStatement.setInt(1, id);
+            preparedStatement.execute();
+            preparedStatement.close();
+            this.connection.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void enable(Integer id) {
+        PreparedStatement preparedStatement;
+        String sql = "UPDATE account SET active = false WHERE id = ?";
+        try {
+            preparedStatement = this.connection.prepareStatement(sql);
+            preparedStatement.setInt(1, id);
             preparedStatement.execute();
             preparedStatement.close();
             this.connection.close();
